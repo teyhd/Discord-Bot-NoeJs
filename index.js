@@ -1,16 +1,19 @@
 const Discord = require("discord.js");
 const config = require("./config.json");
 const fs = require('fs');
-const client = new Discord.Client();
 var usersNow = new Map();
+const client = new Discord.Client();
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
   client.user.setActivity('за вами', { type: 'WATCHING' })
-  var reciv = record('779362056411414579','531959063693754368');
-  //var playing = play("779362056411414579","user_auo");
-  //console.log(Discord.VoiceReceiver.createStream(531959063693754368));
+ // record('779362056411414579','531959063693754368');
+// setTimeout(function() {recI.end()}, 5000);
+ // console.log(reciv);
+   //var playing = play("779362056411414579","user_auo");
+   // console.log(Discord.VoiceReceiver.createStream(531959063693754368));
 });
+
 client.on('message', msg => {
     switch (msg.content) {
         case 'ping':
@@ -18,7 +21,9 @@ client.on('message', msg => {
             msg.reply(`Pong! This message had a latency of ${timeTaken}ms.`);
             break;
     }
+
 });
+
 client.on('voiceStateUpdate', info => {
       for (let user of info.guild.voiceStates.cache.keys()){
           let userName='';
@@ -53,6 +58,9 @@ client.on('voiceStateUpdate', info => {
     //console.log(usersNow);
     //console.log("\n");
 });
+
+client.login(config.BOT_TOKEN);
+
 function new_user(user,userinfo){
   usersNow.set(user,userinfo); 
   console.log(`Вошел новый пользователь: ${userinfo.name}`);
@@ -83,15 +91,15 @@ function sendMsg(chan,msg){
       .catch(console.error);
 }
 function record(chan_id,user_id){
-           client.channels.fetch(chan_id)
+    client.channels.fetch(chan_id)
       .then(channel => {
-          console.log(channel.guild.voiceStates);
+         // console.log(channel.guild.voiceStates);
           channel.join()
           .then(connection => {
-           return connection.receiver.createStream(user_id,{mode:'pcm',end:'manual'}).pipe(fs.createWriteStream('user_auo'));
+                 var recI = connection.receiver.createStream(user_id,{mode:'pcm',end:'manual'});
+                 recI.pipe(fs.createWriteStream('voc'));
                   })
           .catch(console.error);
       })
       .catch(console.error);
 }
-client.login(config.BOT_TOKEN);
