@@ -1,10 +1,21 @@
-const Discord = require("discord.js");
-const config = require("./config.json");
-const fs = require('fs');
-var usersNow = new Map();
-const client = new Discord.Client();
+const Discord    = require("discord.js");
+const config     = require("./config/config.json");
+const fs         = require('fs');
+var mysql        = require('mysql');
+var usersNow     = new Map();
+const client     = new Discord.Client();
+process.env.TZ = 'Europe/Ulyanovsk' ;
+//Europe/Ulyanovsk
 
-client.on('ready', () => {
+var mysqlconne = mysql.createConnection({
+  host     : 'localhost',
+  user     : 'teyhd',
+  password : '258000',
+  database : 'discord'
+});
+  mysqlconne.connect();
+//function ds(){
+   client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
   client.user.setActivity('за вами', { type: 'WATCHING' })
  // record('779362056411414579','531959063693754368');
@@ -36,7 +47,7 @@ client.on('voiceStateUpdate', info => {
                   channel:chann,
                   name: userName,
                   group: info.guild.voiceStates.guild.channels.cache.get(chann).name,
-                  time: new Date()
+                  time: get_current_time()
               }
                   new_user(user,userinfo);           
             } else {
@@ -59,14 +70,16 @@ client.on('voiceStateUpdate', info => {
     //console.log("\n");
 });
 
-client.login(config.BOT_TOKEN);
-
+client.login(config.BOT_TOKEN); 
+//}
 function new_user(user,userinfo){
   usersNow.set(user,userinfo); 
+  //add_user(user,userinfo.name);
   console.log(`Вошел новый пользователь: ${userinfo.name}`);
 }
 function user_exit(user){
     console.log(`${usersNow.get(user).name} вышел`);
+    add_mysql(user);
     usersNow.delete(user);
 }
 function user_chg_chan(ChanInfo){
@@ -103,3 +116,35 @@ function record(chan_id,user_id){
       })
       .catch(console.error);
 }
+function get_current_time(){
+    return `${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
+}
+//mysql
+function add_user(id,name){  
+    let quer = `(${id}, '${name}');`;
+    try {
+      mysqlconne.query("INSERT `users` (`user_id`, `name`) VALUES "+quer, function (error, results, fields) {
+      if (error==null) return(results.affectedRows);
+      //return results[0];
+      console.log(error);
+    });     
+    } catch (e) {console.log(e.error)}
+}
+function add_mysql(user){
+    let quer = `(${user}, '${usersNow.get(user).name}', '${usersNow.get(user).group}','${usersNow.get(user).time}' ,'${get_current_time()}');`;
+    try {
+      mysqlconne.query("INSERT `attendance` (`user_id`, `name`, `group`, `time_start`, `time_stop`) VALUES "+quer, function (error, results, fields) {
+      if (error==null) return(results.affectedRows);
+      //return results[0];
+      console.log(error);
+    });     
+    } catch (e) {console.log(e.error)}    
+}
+//INSERT INTO `discord`.`attendance` (`user_id`, `name`, `group`, `time_start`, `time_stop`) VALUES ('234234', 'sdfd', 'dfdf', '18:00:40', '18:00:41');
+//ds();
+
+
+process.on('uncaughtException', (err) => {
+    //ans("Пойман глобальный косяк при попытки к бегству!!! Не беспокойтесь!!!!");
+  console.log('whoops! there was an error', err.stack);
+}); //Если все пошло по пизде, спасет ситуацию
