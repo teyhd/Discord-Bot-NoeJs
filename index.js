@@ -6,7 +6,6 @@ var usersNow     = new Map();
 const client     = new Discord.Client();
 process.env.TZ = 'Europe/Ulyanovsk' ;
 //Europe/Ulyanovsk
-
 var mysqlconne = mysql.createConnection({
   host     : 'localhost',
   user     : 'teyhd',
@@ -15,9 +14,12 @@ var mysqlconne = mysql.createConnection({
 });
   mysqlconne.connect();
 //function ds(){
-   client.on('ready', () => {
+
+client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
-  client.user.setActivity('за вами', { type: 'WATCHING' })
+  console.log(client.uptime);
+  client.user.setActivity('за вами', { type: 'WATCHING' });
+  fake_connect();
  // record('779362056411414579','531959063693754368');
 // setTimeout(function() {recI.end()}, 5000);
  // console.log(reciv);
@@ -31,16 +33,31 @@ client.on('message', msg => {
             const timeTaken = Date.now() - msg.createdTimestamp;
             msg.reply(`Pong! This message had a latency of ${timeTaken}ms.`);
             break;
+        case 'uptime':
+            msg.reply(`Uptime: ${client.uptime}`);
+            break;       
+        case 'conn':
+            fake_connect();
+            msg.reply(`Ready`);
+            break;
+        case 'help':
+            msg.reply(`ping,uptime,conn`);
+            break;
     }
 
 });
 
 client.on('voiceStateUpdate', info => {
       for (let user of info.guild.voiceStates.cache.keys()){
+          
           let userName='';
+          try {
           if(info.guild.voiceStates.cache.get(user).member.nickname!=null) userName=info.guild.voiceStates.cache.get(user).member.nickname
             else userName = info.guild.voiceStates.cache.get(user).member.user.username;
-            
+          } catch (e) {
+                 userName = info.guild.voiceStates.cache.get(user).member.user.username;
+            }
+
             if (!usersNow.has(user)){
                 let chann = info.guild.voiceStates.cache.get(user).channelID;
                 let userinfo = {
@@ -72,6 +89,15 @@ client.on('voiceStateUpdate', info => {
 
 client.login(config.BOT_TOKEN); 
 //}
+function fake_connect(){
+        client.channels.fetch('779362056411414579')
+      .then(channel => {
+         // console.log(channel.guild.voiceStates);
+          channel.join();
+            setTimeout(function() {channel.leave();}, 5000);
+      })
+      .catch(console.error);
+}
 function new_user(user,userinfo){
   usersNow.set(user,userinfo); 
   //add_user(user,userinfo.name);
@@ -84,8 +110,10 @@ function user_exit(user){
 }
 function user_chg_chan(ChanInfo){
     console.log(`${usersNow.get(ChanInfo.userId).name} сменил канал [${usersNow.get(ChanInfo.userId).group}] => [${ChanInfo.name}]`);
+    add_mysql(ChanInfo.userId);
     usersNow.get(ChanInfo.userId).channel = ChanInfo.id;
     usersNow.get(ChanInfo.userId).group = ChanInfo.name;
+    usersNow.get(ChanInfo.userId).time =get_current_time();
 }
 function play(voiceChan,filename){
      client.channels.fetch(`${voiceChan}`)
@@ -140,9 +168,6 @@ function add_mysql(user){
     });     
     } catch (e) {console.log(e.error)}    
 }
-//INSERT INTO `discord`.`attendance` (`user_id`, `name`, `group`, `time_start`, `time_stop`) VALUES ('234234', 'sdfd', 'dfdf', '18:00:40', '18:00:41');
-//ds();
-
 
 process.on('uncaughtException', (err) => {
     //ans("Пойман глобальный косяк при попытки к бегству!!! Не беспокойтесь!!!!");
