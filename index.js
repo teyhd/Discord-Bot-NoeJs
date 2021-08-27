@@ -1,18 +1,14 @@
 const Discord    = require("discord.js");
 const config     = require("./config/config.json");
+const bdconf     = require("./config/bd.json");
 const fs         = require('fs');
 var mysql        = require('mysql');
 var usersNow     = new Map();
 const client     = new Discord.Client();
+var mysqlconne = mysql.createConnection(bdconf);
 process.env.TZ = 'Europe/Ulyanovsk' ;
-//Europe/Ulyanovsk
-var mysqlconne = mysql.createConnection({
-  host     : 'localhost',
-  user     : 'teyhd',
-  password : '258000',
-  database : 'discord'
-});
-  mysqlconne.connect();
+
+mysqlconne.connect();
 //function ds(){
 
 client.on('ready', () => {
@@ -28,43 +24,63 @@ client.on('ready', () => {
 });
 
 client.on('message', msg => {
+    let is_answered = false;
     switch (msg.content) {
         case 'ping':
             const timeTaken = Date.now() - msg.createdTimestamp;
             msg.reply(`Pong! This message had a latency of ${timeTaken}ms.`);
+            is_answered = true;
             break;
         case 'uptime':
             msg.reply(`Uptime: ${client.uptime}`);
+              is_answered = true;
             break;       
         case 'conn':
             fake_connect();
             msg.reply(`Ready`);
+              is_answered = true;
             break;
         case 'help':
             msg.reply(`ping,uptime,conn`);
+              is_answered = true;
             break;
+        case 'clear':
+            delete_messages(msg);
+            break;
+    }
+    if(is_answered){
+       msg.delete().catch(); 
     }
 
 });
 
 client.on('voiceStateUpdate', info => {
       for (let user of info.guild.voiceStates.cache.keys()){
-          
+          let chann,chan_name;
           let userName='';
           try {
-          if(info.guild.voiceStates.cache.get(user).member.nickname!=null) userName=info.guild.voiceStates.cache.get(user).member.nickname
-            else userName = info.guild.voiceStates.cache.get(user).member.user.username;
+            chann = info.guild.voiceStates.cache.get(user).channelID;
+            chan_name = info.guild.voiceStates.guild.channels.cache.get(chann).name;
+ 
           } catch (e) {
-                 userName = info.guild.voiceStates.cache.get(user).member.user.username;
+                 console.log('err');
+            }
+            
+            try {
+                if(info.guild.voiceStates.cache.get(user).member.nickname!=null) userName=info.guild.voiceStates.cache.get(user).member.nickname
+                else userName = info.guild.voiceStates.cache.get(user).member.user.username;
+            } catch (e) {
+                userName = info.guild.voiceStates.cache.get(user).member.user.username;
             }
 
             if (!usersNow.has(user)){
-                let chann = info.guild.voiceStates.cache.get(user).channelID;
+
                 let userinfo = {
                   channel:chann,
                   name: userName,
-                  group: info.guild.voiceStates.guild.channels.cache.get(chann).name,
-                  time: get_current_time()
+                  group: chan_name,
+                  time: get_current_time(),
+                  date: get_cur_date()
               }
                   new_user(user,userinfo);           
             } else {
@@ -72,11 +88,11 @@ client.on('voiceStateUpdate', info => {
                     if(info.guild.voiceStates.cache.get(user).channelID==null){
                         user_exit(user);//Вышел
                     } else {
-                        let newChId = info.guild.voiceStates.cache.get(user).channelID;
+
                         let newCH = {
                             userId: user,
-                            id: newChId,
-                            name: info.guild.voiceStates.guild.channels.cache.get(newChId).name
+                            id: chann,
+                            name:chan_name
                         }
                        user_chg_chan(newCH);//перешел
                     }
@@ -101,7 +117,7 @@ function fake_connect(){
 function new_user(user,userinfo){
   usersNow.set(user,userinfo); 
   //add_user(user,userinfo.name);
-  console.log(`Вошел новый пользователь: ${userinfo.name}`);
+  console.log(`Вошел новый пользователь: ${userinfo.name} в канал ${userinfo.group}`);
 }
 function user_exit(user){
     console.log(`${usersNow.get(user).name} вышел`);
@@ -114,6 +130,7 @@ function user_chg_chan(ChanInfo){
     usersNow.get(ChanInfo.userId).channel = ChanInfo.id;
     usersNow.get(ChanInfo.userId).group = ChanInfo.name;
     usersNow.get(ChanInfo.userId).time =get_current_time();
+    usersNow.get(ChanInfo.userId).date = get_cur_date();
 }
 function play(voiceChan,filename){
      client.channels.fetch(`${voiceChan}`)
@@ -147,6 +164,21 @@ function record(chan_id,user_id){
 function get_current_time(){
     return `${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
 }
+function get_cur_date(){
+    let mon = new Date().getMonth()+1;
+    let dayn = new Date().getDate();
+    mon = (mon < 10) ? '0' + mon : mon;
+    dayn = (dayn < 10) ? '0' + dayn : dayn;
+    return `${new Date().getFullYear()}-${mon}-${dayn}`;
+}
+async function delete_messages(mess) { // Объявление асинхронной функции
+    await mess.channel.messages.fetch({
+        limit: 5
+    }).then(messages => {
+        mess.channel.bulkDelete(messages)
+        //mess.channel.send(`Удалено ${amount} сообщений!`)
+    })
+};
 //mysql
 function add_user(id,name){  
     let quer = `(${id}, '${name}');`;
@@ -159,17 +191,25 @@ function add_user(id,name){
     } catch (e) {console.log(e.error)}
 }
 function add_mysql(user){
-    let quer = `(${user}, '${usersNow.get(user).name}', '${usersNow.get(user).group}','${usersNow.get(user).time}' ,'${get_current_time()}');`;
+    let quer = `(${user},'${usersNow.get(user).name}','${usersNow.get(user).group}','${usersNow.get(user).time}','${get_current_time()}','${usersNow.get(user).date}');`;
     try {
-      mysqlconne.query("INSERT `attendance` (`user_id`, `name`, `group`, `time_start`, `time_stop`) VALUES "+quer, function (error, results, fields) {
+      mysqlconne.query("INSERT `attendance` (`user_id`, `name`, `group`, `time_start`, `time_stop`,`date`) VALUES "+quer, function (error, results, fields) {
       if (error==null) return(results.affectedRows);
       //return results[0];
       console.log(error);
     });     
-    } catch (e) {console.log(e.error)}    
+    } catch (e) {
+        console.log(e.error)
+        mysqlconne.end();
+        mysqlconne.connect();
+    }    
 }
 
 process.on('uncaughtException', (err) => {
-    //ans("Пойман глобальный косяк при попытки к бегству!!! Не беспокойтесь!!!!");
+    client.destroy();
+    mysqlconne.destroy();
+    mysqlconne = mysql.createConnection(bdconf);
+    mysqlconne.connect();
+    client.login(config.BOT_TOKEN); 
   console.log('whoops! there was an error', err.stack);
 }); //Если все пошло по пизде, спасет ситуацию
